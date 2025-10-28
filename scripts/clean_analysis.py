@@ -978,12 +978,49 @@ def analyze_journal_types(df, limitation_columns):
     
     return comparison_df
 
+def analyze_study_characteristics(df):
+    """
+    Analyze basic study characteristics for the scoping review
+    """
+    print("\n=== STUDY CHARACTERISTICS ===")
+    
+    # Study selection summary
+    print("STUDY SELECTION:")
+    print("• 2388 references imported for screening")
+    print("• 2054 studies screened against title/abstract")
+    print("• 566 studies assessed for full-text eligibility") 
+    print("• 228 studies included in final analysis")
+    
+    # Study designs
+    print("\nSTUDY DESIGNS:")
+    design_counts = df['Study design'].value_counts()
+    for design, count in design_counts.items():
+        percentage = (count / len(df)) * 100
+        print(f"  {design}: {count} ({percentage:.1f}%)")
+    
+    # Geographic distribution
+    print("\nGEOGRAPHIC DISTRIBUTION:")
+    region_counts = df['Region'].value_counts()
+    for region, count in region_counts.items():
+        percentage = (count / len(df)) * 100
+        print(f"  {region}: {count} ({percentage:.1f}%)")
+    
+    # Publication years
+    print("\nPUBLICATION YEARS (2014-2024):")
+    year_counts = df['Year of publication'].value_counts().sort_index()
+    for year, count in year_counts.items():
+        print(f"  {year}: {count} studies")
+    
+    return design_counts
+
 def main():
     print("=== NIGERIAN MCH RESEARCH LIMITATIONS ANALYSIS ===\n")
     
     # Load data
     df, limitation_columns = load_data()
     print(f"Dataset: {len(df)} studies from 2014 to 2024")
+    
+    study_chars = analyze_study_characteristics(df)
     
     # Create outputs directory
     os.makedirs('outputs/figures', exist_ok=True)
