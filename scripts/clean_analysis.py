@@ -685,7 +685,7 @@ def analyze_urban_rural(df, limitation_columns):
     print("\n=== 9. GEOGRAPHIC SETTING AND LIMITATION PATTERNS ===")
     
     print("Urban-Rural distribution:")
-    urban_rural_counts = df['Urban–Rural'].value_counts()
+    urban_rural_counts = df['Urban_Rural_clean'].value_counts()
     print(urban_rural_counts)
     
     # Focus on meaningful comparison: Urban vs Rural vs Both (exclude "Not specified")
@@ -988,7 +988,7 @@ def analyze_study_characteristics(df):
     print("STUDY SELECTION:")
     print("• 2388 references imported for screening")
     print("• 2054 studies screened against title/abstract")
-    print("• 566 studies assessed for full-text eligibility") 
+    print("• 539 reports assessed for eligibility") 
     print("• 228 studies included in final analysis")
     
     # Study designs
@@ -1000,7 +1000,7 @@ def analyze_study_characteristics(df):
     
     # Geographic distribution
     print("\nGEOGRAPHIC DISTRIBUTION:")
-    region_counts = df['Region'].value_counts()
+    region_counts = df['Region_clean'].value_counts()
     for region, count in region_counts.items():
         percentage = (count / len(df)) * 100
         print(f"  {region}: {count} ({percentage:.1f}%)")
@@ -1012,6 +1012,156 @@ def analyze_study_characteristics(df):
         print(f"  {year}: {count} studies")
     
     return design_counts
+
+def analyze_top5_limitations_trends(df, limitation_columns):
+    print("\n=== TOP 5 LIMITATIONS TEMPORAL TRENDS (2014-2024) ===")
+    
+    limitation_counts = {}
+    
+    for col in limitation_columns:
+        non_null_data = df[col].dropna()
+        for value in non_null_data:
+            codes = [code.strip() for code in str(value).split(';')]
+            for code in codes:
+                code_key = code.split(':')[0].strip() if ':' in code else code.strip()
+                if code_key in limitation_counts:
+                    limitation_counts[code_key] += 1
+                else:
+                    limitation_counts[code_key] = 1
+    
+    top_limitations_df = pd.DataFrame.from_dict(limitation_counts, orient='index', columns=['Count'])
+    top_limitations_df['Percentage'] = (top_limitations_df['Count'] / len(df)) * 100
+    top_limitations_df = top_limitations_df.sort_values('Count', ascending=False)
+    
+    top_5_limitations = top_limitations_df.head(5).index.tolist()
+    print(f"Top 5 Limitations to track: {top_5_limitations}")
+    
+    df['Year'] = pd.to_numeric(df['Year of publication'], errors='coerce')
+    df = df.dropna(subset=['Year'])
+    df['Year'] = df['Year'].astype(int)
+    
+    trends_data = []
+    years = sorted(df['Year'].unique())
+    
+    for year in years:
+        year_studies = df[df['Year'] == year]
+        if len(year_studies) == 0:
+            continue
+            
+        year_data = {'Year': year, 'Total_Studies': len(year_studies)}
+        
+        for limitation in top_5_limitations:
+            count = 0
+            for col in limitation_columns:
+                for idx, value in year_studies[col].items():
+                    if pd.notna(value):
+                        codes = [code.strip() for code in str(value).split(';')]
+                        clean_codes = [code.split(':')[0].strip() if ':' in code else code.strip() for code in codes]
+                        if limitation in clean_codes:
+                            count += 1
+                            break
+            
+            percentage = (count / len(year_studies)) * 100 if len(year_studies) > 0 else 0
+            year_data[limitation] = percentage
+        
+        trends_data.append(year_data)
+    
+    trends_df = pd.DataFrame(trends_data)
+    
+    plt.figure(figsize=(12, 8))
+    
+    for limitation in top_5_limitations:
+        if limitation in trends_df.columns:
+            plt.plot(trends_df['Year'], trends_df[limitation], marker='o', linewidth=2.5, label=limitation)
+    
+    plt.title('Trends in Top 5 Reported Limitations (2014-2024)', fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel('Publication Year', fontsize=12)
+    plt.ylabel('Percentage of Studies Reporting Limitation (%)', fontsize=12)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, alpha=0.3)
+    plt.xticks(years, rotation=45)
+    plt.tight_layout()
+    
+    os.makedirs('outputs/figures', exist_ok=True)
+    plt.savefig('outputs/figures/12_top5_limitations_trends.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"\nTop 5 Limitations Temporal Trends analysis completed!")
+    print(f"Figure saved as: outputs/figures/12_top5_limitations_trends.png")
+    
+    return trends_df
+
+def analyze_limitation_cooccurrence(df, limitation_columns):
+    print("\n=== LIMITATION CO-OCCURRENCE ANALYSIS ===")
+    
+    limitation_counts = {}
+    
+    for col in limitation_columns:
+        non_null_data = df[col].dropna()
+        for value in non_null_data:
+            codes = [code.strip() for code in str(value).split(';')]
+            for code in codes:
+                code_key = code.split(':')[0].strip() if ':' in code else code.strip()
+                if code_key in limitation_counts:
+                    limitation_counts[code_key] += 1
+                else:
+                    limitation_counts[code_key] = 1
+    
+    top_limitations_df = pd.DataFrame.from_dict(limitation_counts, orient='index', columns=['Count'])
+    top_limitations_df = top_limitations_df.sort_values('Count', ascending=False)
+    top_10_limitations = top_limitations_df.head(10).index.tolist()
+    
+    print(f"Top 10 limitations for co-occurrence analysis: {top_10_limitations}")
+    
+    cooccurrence_matrix = pd.DataFrame(0, index=top_10_limitations, columns=top_10_limitations)
+    
+    for col in limitation_columns:
+        for idx, value in df[col].items():
+            if pd.notna(value):
+                codes = [code.strip() for code in str(value).split(';')]
+                clean_codes = [code.split(':')[0].strip() if ':' in code else code.strip() for code in codes]
+                present_limitations = [lim for lim in top_10_limitations if lim in clean_codes]
+                
+                for i, lim1 in enumerate(present_limitations):
+                    for lim2 in present_limitations[i+1:]:
+                        cooccurrence_matrix.loc[lim1, lim2] += 1
+                        cooccurrence_matrix.loc[lim2, lim1] += 1
+    
+    plt.figure(figsize=(12, 10))
+    
+    total_studies = len(df)
+    cooccurrence_pct = (cooccurrence_matrix / total_studies) * 100
+    
+    mask = np.triu(np.ones_like(cooccurrence_pct, dtype=bool))
+    sns.heatmap(cooccurrence_pct, mask=mask, annot=True, fmt='.1f', cmap='YlOrRd',
+                square=True, cbar_kws={'label': 'Co-occurrence Percentage (%)'})
+    
+    plt.title('Co-occurrence of Top 10 Limitations\n(Percentage of Studies Reporting Both)', 
+              fontsize=16, fontweight='bold', pad=20)
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    
+    os.makedirs('outputs/figures', exist_ok=True)
+    plt.savefig('outputs/figures/13_limitation_cooccurrence.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"\nLimitation Co-occurrence analysis completed!")
+    print(f"Figure saved as: outputs/figures/13_limitation_cooccurrence.png")
+    
+    cooccurrence_pairs = []
+    for i, lim1 in enumerate(top_10_limitations):
+        for lim2 in top_10_limitations[i+1:]:
+            if cooccurrence_pct.loc[lim1, lim2] > 0:
+                cooccurrence_pairs.append((lim1, lim2, cooccurrence_pct.loc[lim1, lim2]))
+    
+    cooccurrence_pairs.sort(key=lambda x: x[2], reverse=True)
+    
+    print("\nTop Co-occurring Limitation Pairs:")
+    for i, (lim1, lim2, pct) in enumerate(cooccurrence_pairs[:10], 1):
+        print(f"{i}. {lim1} + {lim2}: {pct:.1f}% of studies")
+    
+    return cooccurrence_pct
 
 def main():
     print("=== NIGERIAN MCH RESEARCH LIMITATIONS ANALYSIS ===\n")
@@ -1084,7 +1234,21 @@ def main():
     print("="*60)
     results['journal_types'] = analyze_journal_types(df, limitation_columns)
 
+    print("\n" + "="*60)
+    print("ANALYSIS 12: TOP 5 LIMITATIONS TEMPORAL TRENDS")
+    print("="*60)
+    results['top5_trends'] = analyze_top5_limitations_trends(df, limitation_columns)
+
+    print("\n" + "="*60)
+    print("ANALYSIS 13: LIMITATION CO-OCCURRENCE")
+    print("="*60)
+    results['cooccurrence'] = analyze_limitation_cooccurrence(df, limitation_columns)
+    
     print("\n=== ANALYSIS COMPLETE ===")
     print("All 11 analyses completed and outputs saved to outputs/ folder")
     
     return results
+
+# Execute the main analysis function
+if __name__ == "__main__":
+    results = main()
