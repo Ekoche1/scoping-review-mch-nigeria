@@ -338,15 +338,12 @@ def analyze_regional_comparison(df, limitation_columns):
     return comparison_df
 
 def analyze_trends_over_time(df, limitation_columns):
-    """Analyze trends in specific limitation categories over time (2014-2024)"""
     print("\n=== 5. TRENDS OVER TIME (2014-2024) ===")
     
-    # Ensure we have year data
     df['Year'] = pd.to_numeric(df['Year of publication'], errors='coerce')
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
     
-    # Use more specific limitation categories instead of broad methodological/contextual
     trends_data = []
     years = sorted(df['Year'].unique())
     
@@ -355,57 +352,43 @@ def analyze_trends_over_time(df, limitation_columns):
         if len(year_studies) == 0:
             continue
             
-        # Calculate percentages for specific limitation categories
-        sampling_count = year_studies['-- SAMPLING & DESIGN --'].notna().sum()
-        sampling_pct = (sampling_count / len(year_studies)) * 100
+        analysis_gen_count = year_studies['-- ANALYSIS & GENERALIZABILITY --'].notna().sum()
+        analysis_gen_pct = (analysis_gen_count / len(year_studies)) * 100
         
-        measurement_count = year_studies['-- MEASUREMENT & DATA --'].notna().sum()
-        measurement_pct = (measurement_count / len(year_studies)) * 100
-        
-        analysis_count = year_studies['-- ANALYSIS & GENERALIZABILITY --'].notna().sum()
-        analysis_pct = (analysis_count / len(year_studies)) * 100
-        
-        context_count = year_studies['-- CONTEXT & LOGISTICS --'].notna().sum()
-        context_pct = (context_count / len(year_studies)) * 100
+        contextual_count = year_studies['-- CONTEXT & LOGISTICS --'].notna().sum()
+        contextual_pct = (contextual_count / len(year_studies)) * 100
         
         trends_data.append({
             'Year': year,
-            'Sampling_Design_Percentage': sampling_pct,
-            'Measurement_Data_Percentage': measurement_pct,
-            'Analysis_Generalizability_Percentage': analysis_pct,
-            'Context_Logistics_Percentage': context_pct,
+            'Analysis_Generalizability_Percentage': analysis_gen_pct,
+            'Contextual_Percentage': contextual_pct,
             'Total_Studies': len(year_studies)
         })
     
     trends_df = pd.DataFrame(trends_data)
     
-    print("Trends in limitation categories over time:")
-    print(trends_df[['Year', 'Sampling_Design_Percentage', 'Measurement_Data_Percentage', 
-                     'Analysis_Generalizability_Percentage', 'Context_Logistics_Percentage', 'Total_Studies']])
+    print("Trends in analysis/generalizability and contextual limitations:")
+    print(trends_df[['Year', 'Analysis_Generalizability_Percentage', 'Contextual_Percentage', 'Total_Studies']])
     
-    # Visualization - Trends for specific categories
     plt.figure(figsize=(12, 6))
     
-    plt.plot(trends_df['Year'], trends_df['Sampling_Design_Percentage'], 
-             marker='o', linewidth=2, label='Sampling & Design', color='#1f77b4')
-    plt.plot(trends_df['Year'], trends_df['Measurement_Data_Percentage'], 
-             marker='s', linewidth=2, label='Measurement & Data', color='#ff7f0e')
     plt.plot(trends_df['Year'], trends_df['Analysis_Generalizability_Percentage'], 
-             marker='^', linewidth=2, label='Analysis & Generalizability', color='#2ca02c')
-    plt.plot(trends_df['Year'], trends_df['Context_Logistics_Percentage'], 
-             marker='d', linewidth=2, label='Context & Logistics', color='#d62728')
+             marker='o', linewidth=3, label='Analysis & Generalizability', color='#2ca02c')
+    plt.plot(trends_df['Year'], trends_df['Contextual_Percentage'], 
+             marker='s', linewidth=3, label='Contextual Limitations', color='#d62728')
     
-    plt.xlabel('Year')
-    plt.ylabel('Percentage of Studies Reporting (%)')
-    plt.title('Trends in Specific Limitation Categories\nNigerian MCH Research (2014-2024)')
-    plt.legend()
+    plt.xlabel('Publication Year', fontsize=12)
+    plt.ylabel('Percentage of Studies Reporting (%)', fontsize=12)
+    plt.title('Temporal Trends in Limitation Reporting\nNigerian MCH Research (2014-2024)', 
+              fontsize=14, fontweight='bold', pad=20)
+    plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3)
-    plt.xticks(years)
+    plt.xticks(years, rotation=45)
     plt.ylim(0, 100)
     
     plt.tight_layout()
     plt.savefig('outputs/figures/05_trends_over_time.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    plt.close()
     
     return trends_df
 
