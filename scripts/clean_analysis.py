@@ -459,36 +459,26 @@ def analyze_contextual_limitations_trends(df, limitation_columns):
     return trend_df
 
 def analyze_topic_areas(df, limitation_columns):
-    """Analyze distinctive limitation patterns by MCH topic area"""
     print("\n=== 7. TOPIC-SPECIFIC LIMITATION PATTERNS ===")
     
-    # Get top topic areas
     topic_counts = df['Topic area'].value_counts()
     top_topics = topic_counts.head(5).index
     
-    # Analyze distinctive limitations for each topic
-    topic_analysis = []
+    topic_data = []
     
     for topic in top_topics:
         topic_studies = df[df['Topic area'] == topic]
-        other_studies = df[df['Topic area'] != topic]
         
-        topic_limits = {'Topic': topic, 'N': len(topic_studies)}
+        topic_percentages = {'Topic': topic, 'N': len(topic_studies)}
         
-        # Find limitations that are distinctive to this topic
         for col in limitation_columns:
-            topic_pct = (topic_studies[col].notna().sum() / len(topic_studies)) * 100
-            other_pct = (other_studies[col].notna().sum() / len(other_studies)) * 100
-            
-            # Calculate distinctiveness (how much more common in this topic)
-            distinctiveness = topic_pct - other_pct
-            topic_limits[col] = distinctiveness
+            pct = (topic_studies[col].notna().sum() / len(topic_studies)) * 100
+            topic_percentages[col] = pct
         
-        topic_analysis.append(topic_limits)
+        topic_data.append(topic_percentages)
     
-    topic_df = pd.DataFrame(topic_analysis)
+    topic_df = pd.DataFrame(topic_data)
     
-    # Clean topic names
     topic_clean_names = {
         'Maternal outcomes ': 'Maternal Outcomes',
         'Other': 'Other Topics', 
@@ -498,75 +488,41 @@ def analyze_topic_areas(df, limitation_columns):
     }
     topic_df['Clean_Topic'] = topic_df['Topic'].map(topic_clean_names)
     
-    print("Distinctive Limitations by Topic Area:")
-    print("(Positive values = more common in this topic, Negative = less common)")
-    
-    # Show most distinctive limitation for each topic
-    for _, row in topic_df.iterrows():
-        distinctive_limits = []
-        for col in limitation_columns:
-            if row[col] > 5:  # More than 5% higher than other topics
-                distinctive_limits.append(f"{col}: +{row[col]:.1f}%")
-            elif row[col] < -5:  # More than 5% lower than other topics
-                distinctive_limits.append(f"{col}: {row[col]:.1f}%")
-        
+    print("Limitation Prevalence by Topic Area:")
+    for idx, row in topic_df.iterrows():
         print(f"\n{row['Clean_Topic']} (N={row['N']}):")
-        if distinctive_limits:
-            for limit in distinctive_limits[:3]:  # Top 3 distinctive
-                print(f"  • {limit}")
-        else:
-            print("  No strongly distinctive limitations")
-    
-        # Visualization - Distinctive limitations by topic
-    plt.figure(figsize=(12, 8))
-    
-    # Prepare data for heatmap-style visualization
-    viz_data = []
-    for _, row in topic_df.iterrows():
         for col in limitation_columns:
-            if abs(row[col]) > 5:  # Only show distinctive differences
-                viz_data.append({
-                    'Topic': row['Clean_Topic'],
-                    'Limitation': col.replace('-- ', '').replace(' --', ''),
-                    'Distinctiveness': row[col],
-                    'Size': abs(row[col])
-                })
+            clean_col = col.strip('-- ').replace('&', 'and')
+            print(f"  {clean_col}: {row[col]:.1f}%")
     
-    if viz_data:  # Only create visualization if we have distinctive data
-        viz_df = pd.DataFrame(viz_data)
-        
-        # Create bubble chart
-        topics = viz_df['Topic'].unique()
-        limitations = viz_df['Limitation'].unique()
-        
-        fig, ax = plt.subplots(figsize=(14, 8))
-        
-        for i, topic in enumerate(topics):
-            for j, limitation in enumerate(limitations):
-                data_point = viz_df[(viz_df['Topic'] == topic) & (viz_df['Limitation'] == limitation)]
-                if not data_point.empty:
-                    distinctiveness = data_point['Distinctiveness'].iloc[0]
-                    size = data_point['Size'].iloc[0] * 10  # Scale for visibility
-                    color = 'green' if distinctiveness > 0 else 'red'
-                    
-                    ax.scatter(j, i, s=size, c=color, alpha=0.6, edgecolors='black', linewidth=0.5)
-                    ax.text(j, i, f'{distinctiveness:+.1f}%', ha='center', va='center', 
-                           fontsize=9, fontweight='bold')
-        
-        ax.set_xticks(range(len(limitations)))
-        ax.set_xticklabels(limitations, rotation=45, ha='right')
-        ax.set_yticks(range(len(topics)))
-        ax.set_yticklabels(topics)
-        ax.set_xlabel('Limitation Category')
-        ax.set_ylabel('Topic Area')
-        ax.set_title('Distinctive Limitation Patterns by MCH Topic Area\n(Green = More Common, Red = Less Common)')
-        ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        plt.savefig('outputs/figures/07_topic_areas.png', dpi=300, bbox_inches='tight')
-        plt.show()
-    else:
-        print("\nNo strongly distinctive patterns found for visualization")
+    plt.figure(figsize=(14, 8))
+    
+    limitation_labels = [col.strip('-- ').replace('&', 'and') for col in limitation_columns]
+    topics_clean = [topic_clean_names[topic] for topic in top_topics]
+    
+    data_for_plot = topic_df[limitation_columns].values.T
+    
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    
+    bar_width = 0.15
+    x_pos = np.arange(len(limitation_labels))
+    
+    for i, topic in enumerate(topics_clean):
+        plt.bar(x_pos + i * bar_width, data_for_plot[:, i], bar_width, 
+                label=topic, color=colors[i], alpha=0.8)
+    
+    plt.xlabel('Limitation Category', fontsize=12)
+    plt.ylabel('Percentage of Studies Reporting (%)', fontsize=12)
+    plt.title('Limitation Prevalence by MCH Topic Area', fontsize=14, fontweight='bold', pad=20)
+    plt.xticks(x_pos + bar_width * 2, limitation_labels, rotation=45, ha='right')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.ylim(0, 100)
+    
+    plt.tight_layout()
+    plt.savefig('outputs/figures/07_topic_areas.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
     return topic_df
 
 def analyze_funding_impact(df, limitation_columns):
