@@ -973,7 +973,7 @@ def analyze_top5_limitations_trends(df, limitation_columns):
     top_limitations_df = top_limitations_df.sort_values('Count', ascending=False)
     
     top_5_limitations = top_limitations_df.head(5).index.tolist()
-    print(f"Top 5 Limitations to track: {top_5_limitations}")
+    print(f"Tracking trends for: {top_5_limitations}")
     
     df['Year'] = pd.to_numeric(df['Year of publication'], errors='coerce')
     df = df.dropna(subset=['Year'])
@@ -1007,18 +1007,34 @@ def analyze_top5_limitations_trends(df, limitation_columns):
     
     trends_df = pd.DataFrame(trends_data)
     
-    plt.figure(figsize=(12, 8))
+    print("Yearly percentages for top 5 limitations:")
+    print(trends_df.round(1))
     
-    for limitation in top_5_limitations:
+    plt.figure(figsize=(14, 8))
+    
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    markers = ['o', 's', '^', 'D', 'v']
+    line_styles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1))]
+    line_widths = [2.5, 2.5, 2.5, 2.5, 3.5]
+    
+    for i, limitation in enumerate(top_5_limitations):
         if limitation in trends_df.columns:
-            plt.plot(trends_df['Year'], trends_df[limitation], marker='o', linewidth=2.5, label=limitation)
+            plt.plot(trends_df['Year'], trends_df[limitation], 
+                     marker=markers[i], linewidth=line_widths[i], 
+                     label=limitation.replace('_', ' ').title(), 
+                     color=colors[i], markersize=6, linestyle=line_styles[i])
     
-    plt.title('Trends in Top 5 Reported Limitations (2014-2024)', fontsize=16, fontweight='bold', pad=20)
+    plt.title('Trends in Top 5 Self-Reported Study Limitations (2014-2024)', 
+              fontsize=15, fontweight='bold', pad=20)
     plt.xlabel('Publication Year', fontsize=12)
     plt.ylabel('Percentage of Studies Reporting Limitation (%)', fontsize=12)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
     plt.grid(True, alpha=0.3)
     plt.xticks(years, rotation=45)
+    
+    max_value = trends_df[top_5_limitations].max().max()
+    plt.ylim(0, min(max_value * 1.2, 100))
+    
     plt.tight_layout()
     
     os.makedirs('outputs/figures', exist_ok=True)
@@ -1028,7 +1044,7 @@ def analyze_top5_limitations_trends(df, limitation_columns):
     print(f"\nTop 5 Limitations Temporal Trends analysis completed!")
     print(f"Figure saved as: outputs/figures/12_top5_limitations_trends.png")
     
-    return trends_df
+    return trends_df    
 
 def analyze_limitation_cooccurrence(df, limitation_columns):
     print("\n=== LIMITATION CO-OCCURRENCE ANALYSIS ===")
